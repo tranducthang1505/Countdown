@@ -19,12 +19,73 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class CountdownViewModel : ViewModel() {
-    var countdownText by mutableStateOf("00:00")
+
+    /**
+     * State countdown text
+     */
+    var countdownText by mutableStateOf("00:00:00")
         private set
 
+    private var countdownJob: Job? = null
+
+    private var remainingSeconds = 0L
+
+    /**
+     * Event: Start
+     */
     fun setTimerAndStart(hours: Int, minutes: Int, seconds: Int) {
-//        val totalSeconds = (hours * (60 * 60)) + minutes * 60 + seconds
+        val totalSeconds = ((hours * (60 * 60)) + minutes * 60 + seconds).toLong()
+        setTimeAndStart(totalSeconds)
     }
+
+    private fun setTimeAndStart(totalSeconds: Long) {
+        remainingSeconds = totalSeconds
+        if (countdownJob?.isCancelled == false) countdownJob?.cancel()
+        countdownJob = viewModelScope.launch {
+            do {
+                delay(1000)
+                remainingSeconds--
+                countdownText = getTextFormatFromSeconds(remainingSeconds)
+            } while (totalSeconds > 0)
+        }
+    }
+
+    /**
+     * event: Pause
+     */
+    fun pause() {
+        countdownJob?.cancel()
+    }
+
+    /**
+     * event: Resume
+     */
+    fun resume() {
+        setTimeAndStart(remainingSeconds)
+    }
+
+    /**
+     * event: Stop
+     */
+    fun stopCountdown() {
+        countdownJob?.cancel()
+        remainingSeconds = 0
+        countdownText = getTextFormatFromSeconds(remainingSeconds)
+    }
+
+    /**
+     * Convert seconds to HH:mm:ss format
+     */
+    private fun getTextFormatFromSeconds(remainingSeconds: Long) = String.format(
+        "%d:%02d:%02d",
+        remainingSeconds / 3600,
+        (remainingSeconds % 3600) / 60,
+        remainingSeconds % 60
+    )
 }
